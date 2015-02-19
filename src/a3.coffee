@@ -1,8 +1,8 @@
 svg = d3.select '#svgContainer'
   .append 'svg'
   .attr
-    width: 500
-    height: 500
+    width: 700
+    height: 700
 
 colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00']
 
@@ -73,31 +73,39 @@ d3.csv 'heartdisease.csv'
     # Add a table of SVGs for every pairing of continuous variables.  When one
     # of the mini SVGs is clicked, the main view updates to that pair of
     # variables.
+    (d3.select '#selectionContainer').append 'h2'
+      .text 'X and Y Locations'
     table = (d3.select '#selectionContainer').append 'table'
     for xField in continuousVariables
       row = table.append 'tr'
       for yField in continuousVariables
-        (row.append 'td').append 'svg'
-          .attr
-            width: '75px'
-            height: '75px'
-          .style
-            display: 'block'
-          .data [{ xField: xField, yField: yField }]
-          .on 'mouseover', () ->
-            (d3.select this).style 'border-color', 'RoyalBlue'
-          .on 'mouseout', () ->
-            (d3.select this).style 'border-color', 'Silver'
-          .on 'click', (d) ->
-            selectedFields.x = d.xField
-            selectedFields.y = d.yField
-            update svg, ({ x: r[selectedFields.x], y: r[selectedFields.y], c: r[selectedFields.c] } for r in rows)
-          .call () ->
-            d = this.node().__data__
-            update this, ({ x: r[d.xField], y: r[d.yField], c: 0 } for r in rows)
+        if xField is yField
+          (row.append 'td').text xField
+            .style 'text-align', 'center'
+        else
+          (row.append 'td').append 'svg'
+            .attr
+              width: '75px'
+              height: '75px'
+            .style
+              display: 'block'
+            .data [{ xField: xField, yField: yField }]
+            .on 'mouseover', () ->
+              (d3.select this).style 'border-color', 'RoyalBlue'
+            .on 'mouseout', () ->
+              (d3.select this).style 'border-color', 'Silver'
+            .on 'click', (d) ->
+              selectedFields.x = d.xField
+              selectedFields.y = d.yField
+              update svg, ({ x: r[selectedFields.x], y: r[selectedFields.y], c: r[selectedFields.c] } for r in rows)
+            .call () ->
+              d = this.node().__data__
+              update this, ({ x: r[d.xField], y: r[d.yField], c: 0 } for r in rows)
 
     # Show a <select> to choose which discrete variable to use to color the
     # dots.
+    (d3.select '#selectionContainer').append 'h2'
+      .text 'Colors'
     colorFieldSelect = (d3.select '#selectionContainer').append 'select'
       .on 'change', () ->
         selectedFields.c = this.selectedOptions[0].value
