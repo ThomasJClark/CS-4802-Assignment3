@@ -4,12 +4,40 @@ svg = d3.select '#svgContainer'
     width: 700
     height: 700
 
+dotsGroup = svg.append 'g'
+  .attr
+    transform: "translate(#{+(svg.attr 'width') * 0.1}, #{(svg.attr 'height') * 0.1})"
+    width:     (svg.attr 'width') * 0.85
+    height:    (svg.attr 'height') * 0.85
+
+xAxis = d3.svg.axis()
+xAxisGroup = svg.append 'g'
+  .attr
+    transform: "translate(#{+(svg.attr 'width') * 0.1}, #{+(svg.attr 'height') * 0.05})"
+    width:     (svg.attr 'width') * 0.85
+    height:    (svg.attr 'height')
+xAxisLabel = svg.append 'text'
+  .attr
+    transform: "translate(#{(svg.attr 'width') * 0.5}, #{(svg.attr 'height') * 0.025 })"
+    'text-anchor': 'middle'
+
+yAxis = d3.svg.axis().orient 'right'
+yAxisGroup = svg.append 'g'
+  .attr
+    transform: "translate(#{+(svg.attr 'width') * 0.05}, #{+(svg.attr 'height') * 0.1})"
+    width:     (svg.attr 'width')
+    height:    (svg.attr 'height') * 0.85
+yAxisLabel = svg.append 'text'
+  .attr
+    transform: "translate(#{(svg.attr 'width') * 0.025}, #{(svg.attr 'height') * 0.5}) rotate(-90)"
+    'text-anchor': 'middle'
+
 # Updates the visualization to show the given array of samples.
 #   container is the SVG containing the visualization.
 #   data is the CSV data.
 #   electedFields is an object literal whose x, y, and c properties specify
 #     which fields from data to show.
-update = (container, data, selectedFields) ->
+updateDots = (container, data, selectedFields) ->
   # Scale the X and Y axes to fit the new data
   xScale = d3.scale.linear()
     .domain [(d3.min data, (d) -> +d[selectedFields.x]), (d3.max data, (d) -> +d[selectedFields.x])]
@@ -18,7 +46,7 @@ update = (container, data, selectedFields) ->
     .domain [(d3.max data, (d) -> +d[selectedFields.y]), (d3.min data, (d) -> +d[selectedFields.y])]
     .range [0, container.attr 'height']
 
-  # Update the document
+  # Update the dots
   dots = (container.selectAll '.dot').data data
   dots.exit().remove()
   dots.enter().append 'circle'
@@ -34,6 +62,31 @@ update = (container, data, selectedFields) ->
     value = datum[selectedFields.c]
     if value is '?' or not discreteVariables[selectedFields.c][+value] then 'Silver'
     else discreteVariables[selectedFields.c][+value]
+
+# Update the scales and text labels of the X and Y axes with the ranges and
+# names of the selected fields.
+#   data is the CSV data.
+#   electedFields is an object literal whose x, y, and c properties specify
+#     which fields from data to show.
+updateAxes = (data, selectedFields) ->
+    # Scale the X and Y axes to fit the new data
+    xScale = d3.scale.linear()
+      .domain [(d3.min data, (d) -> +d[selectedFields.x]), (d3.max data, (d) -> +d[selectedFields.x])]
+      .range [0, xAxisGroup.attr 'width']
+    yScale = d3.scale.linear()
+      .domain [(d3.max data, (d) -> +d[selectedFields.y]), (d3.min data, (d) -> +d[selectedFields.y])]
+      .range [0, yAxisGroup.attr 'height']
+
+    xAxisGroup.transition()
+      .ease 'sin-out'
+      .call (xAxis.scale xScale)
+    yAxisGroup.transition()
+      .ease 'sin-out'
+      .call (yAxis.scale yScale)
+
+    # Set the text on each axis to the name of the appropriate field
+    xAxisLabel.text selectedFields.x
+    yAxisLabel.text selectedFields.y
 
 discreteVariables =
   sex:     [ '#377eb8', '#e41a1c' ]
@@ -93,10 +146,11 @@ d3.csv 'heartdisease.csv'
             .on 'click', (d) ->
               selectedFields.x = d.xField
               selectedFields.y = d.yField
-              update svg, rows, selectedFields
+              updateDots dotsGroup, rows, selectedFields
+              updateAxes rows, selectedFields
             .call () ->
               d = this.node().__data__
-              update this, rows, { x: d.xField, y: d.yField, c: selectedFields.c  }
+              updateDots this, rows, { x: d.xField, y: d.yField, c: selectedFields.c  }
 
     # Show a <select> to choose which discrete variable to use to color the
     # dots.
@@ -105,15 +159,16 @@ d3.csv 'heartdisease.csv'
     colorFieldSelect = (d3.select '#selectionContainer').append 'select'
       .on 'change', () ->
         selectedFields.c = this.selectedOptions[0].value
-        update svg, rows, selectedFields
-
+        updateDots dotsGroup, rows, selectedFields
+        
         d3.selectAll 'svg.scatter-matrix-cell'
           .each (d) ->
-            update (d3.select this), rows, { x: d.xField, y: d.yField, c: selectedFields.c }
+            updateDots (d3.select this), rows, { x: d.xField, y: d.yField, c: selectedFields.c }
 
     for field of discreteVariables
       colorFieldSelect.append 'option'
         .attr 'value', field
         .text field
 
-    update svg, rows, selectedFields
+    updateDots dotsGroup, rows, selectedFields
+    updateAxes rows, selectedFields
