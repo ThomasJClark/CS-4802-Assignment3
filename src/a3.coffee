@@ -1,8 +1,8 @@
 svg = d3.select '#svgContainer'
   .append 'svg'
   .attr
-    width: 700
-    height: 700
+    width: 750
+    height: 600
 
 dotsGroup = svg.append 'g'
   .attr
@@ -60,8 +60,8 @@ updateDots = (container, data, selectedFields) ->
       cy:    (datum) -> yScale datum[selectedFields.y]
   dots.style 'fill', (datum) ->
     value = datum[selectedFields.c]
-    if value is '?' or not discreteVariables[selectedFields.c][+value] then 'Silver'
-    else discreteVariables[selectedFields.c][+value]
+    if value is '?' or not discreteVariableColors[selectedFields.c][+value] then 'Silver'
+    else discreteVariableColors[selectedFields.c][+value]
 
 # Update the scales and text labels of the X and Y axes with the ranges and
 # names of the selected fields.
@@ -88,16 +88,41 @@ updateAxes = (data, selectedFields) ->
     xAxisLabel.text variableNames[selectedFields.x]
     yAxisLabel.text variableNames[selectedFields.y]
 
-discreteVariables =
-  sex:     [ '#377eb8', '#ff8284' ]
+# Update the colors and text in the color key to contain the appropriate values
+# for the currently selected discrete variable.
+updateColorKey  = (selectedFields) ->
+  colorKey = (d3.select '#color-key').selectAll 'li'
+    .data (d3.zip discreteVariableValues[selectedFields.c], discreteVariableColors[selectedFields.c]).filter (d) ->
+      d and d[0] and d[1]
+  colorKey.exit().remove()
+  colorKey.enter().append 'li'
+    .style 'list-style', 'none'
+  colorKey
+    .text (data) -> data[0]
+    .style 'color', (data) -> data[1]
+
+discreteVariableColors =
+  sex:     [ '#ff8284', '#377eb8' ]
   fbs:     [ '#99d8c9', '#2ca25f' ]
   exang:   [ '#e0ecf4', '#8856a7' ]
   cp:      [ undefined, '#e41a1c', '#377eb8', '#4daf4a', '#984ea3' ]
   restecg: [ '#4daf4a', '#984ea3', '#ff7f00' ]
   slope:   [ undefined, '#e41a1c', '#377eb8', '#4daf4a' ]
   ca:      [ '#fee5d9', '#fcae91', '#fb6a4a', '#cb181d' ]
-  thal:    { 3: '#e41a1c', 6: '#377eb8', 7: '#4daf4a' }
+  thal:    [ undefined, undefined, undefined, '#e41a1c', undefined, undefined, '#377eb8', '#4daf4a' ]
   num:     [ '#ff7f00', '#984ea3' ]
+
+discreteVariableValues =
+    sex:     [ 'Female', 'Male' ]
+    fbs:     [ 'No', 'Yes' ]
+    exang:   [ 'No', 'Yes' ]
+    cp:      [ undefined, 'Typical angina ', 'Atypical angina', 'Non-anginal pain', 'Asymptomatic' ]
+    restecg: [ 'Normal', 'ST-T wave abnormality', 'Probable or definite left ventricular hypertrophy' ]
+    slope:   [ undefined, 'Upsloping', 'Flat', 'Downsloping' ]
+    ca:      [ '0', '1', '2', '3' ]
+    thal:    [ undefined, undefined, undefined, 'Normal', undefined, undefined, 'Fixed defect', 'Reversable defect' ]
+    num:     [ '< 50% diameter narrowing ', '> 50% diameter narrowing ' ]
+
 continuousVariables = [ 'age', 'trestbps', 'chol', 'thalach', 'oldpeak' ]
 
 # Human-presentable names of each variable, from the website they came from
@@ -140,14 +165,14 @@ d3.csv 'heartdisease.csv'
         if xField is yField
           (row.append 'td').text variableNames[xField]
             .attr
-              width: '90px'
-              height: '90px'
+              width: '85px'
+              height: '85px'
             .style 'text-align', 'center'
         else
           (row.append 'td').append 'svg'
             .attr
-              width: '90px'
-              height: '90px'
+              width: '85px'
+              height: '85px'
               class: 'scatter-matrix-cell'
             .style
               display: 'block'
@@ -173,15 +198,21 @@ d3.csv 'heartdisease.csv'
       .on 'change', () ->
         selectedFields.c = this.selectedOptions[0].value
         updateDots dotsGroup, rows, selectedFields
+        updateColorKey selectedFields
 
         d3.selectAll 'svg.scatter-matrix-cell'
           .each (d) ->
             updateDots (d3.select this), rows, { x: d.xField, y: d.yField, c: selectedFields.c }
 
-    for field of discreteVariables
+    # Show a color key for the currently selected discrete variable
+    (d3.select '#selectionContainer').append 'ul'
+      .attr 'id', 'color-key'
+
+    for field of discreteVariableColors
       colorFieldSelect.append 'option'
         .attr 'value', field
         .text variableNames[field]
 
     updateDots dotsGroup, rows, selectedFields
     updateAxes rows, selectedFields
+    updateColorKey selectedFields
