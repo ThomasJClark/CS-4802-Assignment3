@@ -4,37 +4,36 @@ svg = d3.select '#svgContainer'
     width: 500
     height: 500
 
-xScale = d3.scale.linear().range [0, svg.attr 'width']
-yScale = d3.scale.linear().range [0, svg.attr 'height']
-
 colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00']
-shapes = ['.', '*', 'x', 'o', '#']
 
 # Updates the visualization to show the given array of samples.  Each sample
 # should have the following properties:
 #   x = A continuous variable to show on the x axis
 #   y = A continuous variable to show on the y axis
 #   c = A discrete variable to show with color
-#   s = A discrete variable to show with shape
-update = (data) ->
+update = (container, data) ->
   # Scale the X and Y axes to fit the new data
-  xScale.domain [(d3.min data, (d) -> +d.x), (d3.max data, (d) -> +d.x)]
-  yScale.domain [(d3.min data, (d) -> +d.y), (d3.max data, (d) -> +d.y)]
+  xScale = d3.scale.linear()
+    .domain [(d3.min data, (d) -> +d.x), (d3.max data, (d) -> +d.x)]
+    .range [0, container.attr 'width']
+  yScale = d3.scale.linear()
+    .domain [(d3.max data, (d) -> +d.y), (d3.min data, (d) -> +d.y)]
+    .range [0, container.attr 'height']
 
   # Update the document
-  dots = (svg.selectAll '.dot').data data
+  dots = (container.selectAll '.dot').data data
   dots.exit().remove()
-  dots.enter().append 'text'
+  dots.enter().append 'circle'
     .attr
       class: 'dot'
+      r: '1%'
   dots.transition()
     .ease 'sin'
-    .text   (datum) -> shapes[datum.s % colors.length]
     .style
       fill: (datum) -> colors[datum.c % colors.length]
     .attr
-      x:    (datum) -> xScale datum.x
-      y:    (datum) -> yScale datum.y
+      cx:    (datum) -> xScale datum.x
+      cy:    (datum) -> yScale datum.y
 
 
 binaryVariables = [
@@ -60,44 +59,51 @@ continuousVariables = [
   'oldpeak'
 ]
 
-# Show two <select>s to choose which continuous variables to show
-xFieldSelect = d3.select 'select#xField'
-yFieldSelect = d3.select 'select#yField'
-for field in continuousVariables
-  xFieldSelect.append 'option'
-    .attr 'value', field
-    .text field
-  yFieldSelect.append 'option'
-    .attr 'value', field
-    .text field
-
-# Show <select>s for which discrete variables to show
-cFieldSelect = d3.select 'select#cField'
-sFieldSelect = d3.select 'select#sField'
-for field in discreteVariables
-  cFieldSelect.append 'option'
-    .attr 'value', field
-    .text field
-  sFieldSelect.append 'option'
-    .attr 'value', field
-    .text field
-
 # Load the csv data, which comes from
 # http://archive.ics.uci.edu/ml/datasets/Heart+Disease
 d3.csv 'heartdisease.csv'
   .get (error, rows) ->
+    selectedFields =
+      x: continuousVariables[0]
+      y: continuousVariables[1]
+      c: discreteVariables[0]
+
     histogram = d3.layout.histogram().bins 20
 
-    # When a different field is selected for either axis, update the
-    # visualization with the newly-selected data.
-    onChange = () ->
-      xField = xFieldSelect.node().value
-      yField = yFieldSelect.node().value
-      cField = cFieldSelect.node().value
-      sField = sFieldSelect.node().value
-      update ({ x: row[xField], y: row[yField], c: row[cField], s: row[sField] } for row in rows)
+    # Add a table of SVGs for every pairing of continuous variables.  When one
+    # of the mini SVGs is clicked, the main view updates to that pair of
+    # variables.
+    table = (d3.select '#selectionContainer').append 'table'
+    for xField in continuousVariables
+      row = table.append 'tr'
+      for yField in continuousVariables
+        (row.append 'td').append 'svg'
+          .attr
+            width: '75px'
+            height: '75px'
+          .style
+            display: 'block'
+          .data [{ xField: xField, yField: yField }]
+          .on 'mouseover', () ->
+            (d3.select this).style 'border-color', 'RoyalBlue'
+          .on 'mouseout', () ->
+            (d3.select this).style 'border-color', 'Silver'
+          .on 'click', (d) ->
+            selectedFields.x = d.xField
+            selectedFields.y = d.yField
+            update svg, ({ x: r[selectedFields.x], y: r[selectedFields.y], c: r[selectedFields.c] } for r in rows)
+          .call () ->
+            d = this.node().__data__
+            update this, ({ x: r[d.xField], y: r[d.yField], c: 0 } for r in rows)
 
-    xFieldSelect.on 'change', onChange
-    yFieldSelect.on 'change', onChange
-    cFieldSelect.on 'change', onChange
-    sFieldSelect.on 'change', onChange
+    # Show a <select> to choose which discrete variable to use to color the
+    # dots.
+    colorFieldSelect = (d3.select '#selectionContainer').append 'select'
+      .on 'change', () ->
+        selectedFields.c = this.selectedOptions[0].value
+        update svg, ({ x: r[selectedFields.x], y: r[selectedFields.y], c: r[selectedFields.c] } for r in rows)
+
+    for field in discreteVariables
+      colorFieldSelect.append 'option'
+        .attr 'value', field
+        .text field
