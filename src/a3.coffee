@@ -85,11 +85,11 @@ updateAxes = (data, selectedFields) ->
       .call (yAxis.scale yScale)
 
     # Set the text on each axis to the name of the appropriate field
-    xAxisLabel.text selectedFields.x
-    yAxisLabel.text selectedFields.y
+    xAxisLabel.text variableNames[selectedFields.x]
+    yAxisLabel.text variableNames[selectedFields.y]
 
 discreteVariables =
-  sex:     [ '#377eb8', '#e41a1c' ]
+  sex:     [ '#377eb8', '#ff8284' ]
   fbs:     [ '#99d8c9', '#2ca25f' ]
   exang:   [ '#e0ecf4', '#8856a7' ]
   cp:      [ undefined, '#e41a1c', '#377eb8', '#4daf4a', '#984ea3' ]
@@ -98,14 +98,24 @@ discreteVariables =
   ca:      [ '#fee5d9', '#fcae91', '#fb6a4a', '#cb181d' ]
   thal:    { 3: '#e41a1c', 6: '#377eb8', 7: '#4daf4a' }
   num:     [ '#ff7f00', '#984ea3' ]
+continuousVariables = [ 'age', 'trestbps', 'chol', 'thalach', 'oldpeak' ]
 
-continuousVariables = [
-  'age',
-  'trestbps',
-  'chol',
-  'thalach',
-  'oldpeak'
-]
+# Human-presentable names of each variable, from the website they came from
+variableNames =
+  age:      'Age (Years)'
+  sex:      'Sex'
+  cp:       'Chest Pain Type'
+  trestbps: 'Resting Blood Pressure'
+  chol:     'Serum Cholestoral (mg/dL)'
+  fbs:      'Fasting Blood Sugar > 120 mg/dL'
+  restecg:  'Resting Electrocardiographic'
+  thalach:  'Maximum Heart Rate '
+  exang:    'Exercise Induced Angina'
+  oldpeak:  'ST Depression by Exercise'
+  slope:    'Peak Exercise ST Segment Slope'
+  ca:       'Major Vessels Colored by Flourosopy '
+  thal:     'thal'
+  num:      'Angiographic Disease Status'
 
 # Load the csv data, which comes from
 # http://archive.ics.uci.edu/ml/datasets/Heart+Disease
@@ -122,19 +132,22 @@ d3.csv 'heartdisease.csv'
     # of the mini SVGs is clicked, the main view updates to that pair of
     # variables.
     (d3.select '#selectionContainer').append 'h2'
-      .text 'X and Y Locations'
+      .text 'Axes'
     table = (d3.select '#selectionContainer').append 'table'
     for xField in continuousVariables
       row = table.append 'tr'
       for yField in continuousVariables
         if xField is yField
-          (row.append 'td').text xField
+          (row.append 'td').text variableNames[xField]
+            .attr
+              width: '90px'
+              height: '90px'
             .style 'text-align', 'center'
         else
           (row.append 'td').append 'svg'
             .attr
-              width: '75px'
-              height: '75px'
+              width: '90px'
+              height: '90px'
               class: 'scatter-matrix-cell'
             .style
               display: 'block'
@@ -160,7 +173,7 @@ d3.csv 'heartdisease.csv'
       .on 'change', () ->
         selectedFields.c = this.selectedOptions[0].value
         updateDots dotsGroup, rows, selectedFields
-        
+
         d3.selectAll 'svg.scatter-matrix-cell'
           .each (d) ->
             updateDots (d3.select this), rows, { x: d.xField, y: d.yField, c: selectedFields.c }
@@ -168,7 +181,7 @@ d3.csv 'heartdisease.csv'
     for field of discreteVariables
       colorFieldSelect.append 'option'
         .attr 'value', field
-        .text field
+        .text variableNames[field]
 
     updateDots dotsGroup, rows, selectedFields
     updateAxes rows, selectedFields
